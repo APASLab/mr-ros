@@ -10,7 +10,7 @@ from launch_ros.actions import Node
 
 
 def validate_and_use_mode(context, *args, **kwargs):
-    pkg_mobrob_localization = get_package_share_directory("mobrob_v08")
+    pkg_mobrob_localization = get_package_share_directory("mobrob_v07")
     mode_value = LaunchConfiguration("mode").perform(context)
     valid_values = ["localization", "mapping", "navigation"]
 

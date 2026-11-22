@@ -1,4 +1,4 @@
-image: mobrob_v08.pgm
+image: mobrob_v07.pgm
 resolution: 0.05
 origin: [-2.4, -2.38, 0]
 negate: 0

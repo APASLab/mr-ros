@@ -121,7 +121,6 @@ class FeatureMatching(Node):
         return response
 
 
-
 def main(args=None):
     rclpy.init(args=args)
 

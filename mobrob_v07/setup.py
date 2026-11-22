@@ -3,7 +3,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = "mobrob_v08"
+package_name = "mobrob_v07"
 
 setup(
     name=package_name,
@@ -19,9 +19,9 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="Diego Susanj",
-    maintainer_email="dsusanj@riteh.hr",
-    description="TODO: Package description",
+    maintainer="Marina Banov",
+    maintainer_email="marina.banov@uniri.hr",
+    description="Resources for mapping, localization, and navigation simulation",
     license="GNU GPLv3",
     tests_require=["pytest"],
     entry_points={

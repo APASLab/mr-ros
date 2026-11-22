@@ -3,14 +3,14 @@
 <package format="3">
   <name>mobrob_v05</name>
   <version>1.0.0</version>
-  <description>Adding pillar to Gazebo from RViz</description>
-  <maintainer email="dsusanj@riteh.hr">Diego Susanj</maintainer>
+  <description>Package containing multiple ROS2 OpenCV examples.</description>
+  <maintainer email="marina.banov@uniri.hr">Marina Banov</maintainer>
   <license>GNU GPLv3</license>
 
-  <exec_depend>ros2launch</exec_depend>
   <exec_depend>rclpy</exec_depend>
-  <exec_depend>gazebo_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

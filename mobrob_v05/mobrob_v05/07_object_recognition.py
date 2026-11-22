@@ -17,8 +17,7 @@ class ObjectRecognition(Node):
         self.declare_parameter("confidence", 0.5)
         self.declare_parameter("threshold", 0.3)
 
-        self.declare_parameter("weights_file", "")
-        self.declare_parameter("cfg_file", "")
+        self.declare_parameter("onnx_file", "")
         self.declare_parameter("classes_file", "")
 
         self.declare_parameter("input_topic", "/camera/image_raw")
@@ -31,16 +30,10 @@ class ObjectRecognition(Node):
         self.get_logger().info(f'Input topic: {self.get_parameter("input_topic").value}')
         self.get_logger().info(f'Output topic: {self.get_parameter("output_topic").value}')
 
-        # Outputting weights file path
-        self.get_logger().info(f'Weights file: {os.path.expanduser(self.get_parameter("weights_file").value)}')
-        if not os.path.isfile(os.path.expanduser(self.get_parameter("weights_file").value)):
-            self.get_logger().error(f"Weights file path is not correct")
-            exit()
-
-        # Outputting config file path
-        self.get_logger().info(f'Config file: {os.path.expanduser(self.get_parameter("cfg_file").value)}')
-        if not os.path.isfile(os.path.expanduser(self.get_parameter("cfg_file").value)):
-            self.get_logger().error(f"Config file path is not correct")
+        # Outputting ONNX file path
+        self.get_logger().info(f'ONNX file: {os.path.expanduser(self.get_parameter("onnx_file").value)}')
+        if not os.path.isfile(os.path.expanduser(self.get_parameter("onnx_file").value)):
+            self.get_logger().error(f"ONNX file path is not correct")
             exit()
 
         # Outputting classes file path
@@ -59,8 +52,8 @@ class ObjectRecognition(Node):
         self.classes = open(os.path.expanduser(self.get_parameter("classes_file").value)).read().strip().split("\n")
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
 
-        # Initialize the CNN darknet detector
-        self.net_detector = cv2.dnn.readNetFromDarknet(os.path.expanduser(self.get_parameter("cfg_file").value), os.path.expanduser(self.get_parameter("weights_file").value))
+        # Initialize the ONNX model
+        self.model = cv2.dnn.readNetFromONNX(os.path.expanduser(self.get_parameter("onnx_file").value))
 
     def parameter_callback(self, parameter_list):
         # Going through the list of changed parameters
@@ -71,44 +64,50 @@ class ObjectRecognition(Node):
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
         frame = CvBridge().imgmsg_to_cv2(msg)
-        (h, w) = frame.shape[:2]
+        (h, w)= frame.shape[:2]
 
-        # Determine only the output layer names from YOLO
-        layer_names = self.net_detector.getLayerNames()
-        layer_names = [layer_names[i - 1] for i in self.net_detector.getUnconnectedOutLayers()]
+        # Prepare a square image for inference
+        square_size = max((h, w))
+        padded_frame = np.zeros((square_size, square_size, 3), np.uint8)
+        padded_frame[0:h, 0:w] = frame
 
-        # Construct a blob from the input image and then perform a forward pass of the YOLO object detector, resulting in bounding boxes and associated probabilities
-        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-        self.net_detector.setInput(blob)
-        layerOutputs = self.net_detector.forward(layer_names)
+        # Calculate scale factor
+        scale = square_size / 640
+
+        # Preprocess the image and prepare blob for model
+        blob = cv2.dnn.blobFromImage(padded_frame, scalefactor=1 / 255, size=(640, 640), swapRB=True, crop=False)
+        self.model.setInput(blob)
+
+        # Perform inference
+        outputs = self.model.forward()
+
+        # Prepare output array
+        outputs = np.array([cv2.transpose(outputs[0])])
+        rows = outputs.shape[1]
 
         boxes = []
         confidences = []
         classIDs = []
 
-        # Loop over each of the layer outputs
-        for output in layerOutputs:
-            # Loop over each of the detections
-            for detection in output:
-                # Extract the class ID and confidence (i.e., probability) of the current object detection
-                scores = detection[5:]
-                classID = np.argmax(scores)
-                confidence = scores[classID]
+        # Iterate through output to collect bounding boxes, confidence scores, and class IDs
+        for i in range(rows):
+            scores = outputs[0][i][4:]
+            classID = np.argmax(scores)
+            confidence = scores[classID]
 
-                # Filter out weak predictions by ensuring the detected probability is greater than the minimum probability
-                if confidence > float(self.get_parameter("confidence").value):
-                    # Scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO actually returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height
-                    box = detection[0:4] * np.array([w, h, w, h])
-                    (centerX, centerY, width, height) = box.astype("int")
+            # Filter out weak predictions by ensuring the detected probability is greater than the minimum probability
+            if confidence > float(self.get_parameter("confidence").value):    
+                # Scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO actually returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height
+                (cx, cy, w, h) = outputs[0][i][:4]
+                
+                # Use the center (x, y)-coordinates to derive the top and left corner of the bounding box
+                x = cx - w / 2
+                y = cy - h / 2
 
-                    # Use the center (x, y)-coordinates to derive the top and left corner of the bounding box
-                    x = int(centerX - (width / 2))
-                    y = int(centerY - (height / 2))
-
-                    # Update list of bounding box coordinates, confidences, and class IDs
-                    boxes.append([x, y, int(width), int(height)])
-                    confidences.append(float(confidence))
-                    classIDs.append(classID)
+                # Update list of bounding box coordinates, confidences, and class IDs
+                boxes.append([int(v * scale) for v in (x, y, w, h)])
+                confidences.append(confidence)
+                classIDs.append(classID)
 
         # Removing some boxes using non-maximum suppression
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, float(self.get_parameter("confidence").value), float(self.get_parameter("threshold").value))

@@ -11,9 +11,9 @@ from ament_index_python.packages import get_package_share_directory
 
 class MobRob3dPerception(Node):
     def __init__(self):
-        super().__init__("mobrob_v05")
+        super().__init__("mobrob_v04")
 
-        self.pkg_share_dir = get_package_share_directory("mobrob_v05")
+        self.pkg_share_dir = get_package_share_directory("mobrob_v04")
 
         self.spawn_model("unit_cylinder", "pillar.sdf")
 
