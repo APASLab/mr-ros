@@ -32,7 +32,7 @@ class VideoPlayer(Node):
 
         # Check if the file is properly opened
         if not self.video_capture.isOpened():
-            self.get_logger().error(f"Cannot open the video file")
+            self.get_logger().error("Cannot open the video file")
             exit()
 
         # Get the FPS value from the parameter or the video FPS
@@ -72,7 +72,7 @@ class VideoPlayer(Node):
                 # If repeat is enabled, restart the video
                 self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
             else:
-                self.get_logger().info(f"Playback done")
+                self.get_logger().info("Playback done")
                 exit()
 
         # Fetch the next frame from the video
@@ -80,7 +80,7 @@ class VideoPlayer(Node):
 
         # If return value is not True, there was an error
         if not ret:
-            self.get_logger().error(f"Error while reading the video file")
+            self.get_logger().error("Error while reading the video file")
             return
 
         # Convert the fetched OpenCV image frame to Image message
@@ -103,10 +103,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        video_player.get_logger().error(e)
+        video_player.get_logger().error(str(e))
     finally:
         video_player.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

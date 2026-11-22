@@ -43,7 +43,7 @@ class PeopleDetection(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         # Convert to grayscale for faster detection
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -76,10 +76,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        people_detection.get_logger().error(e)
+        people_detection.get_logger().error(str(e))
     finally:
         people_detection.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

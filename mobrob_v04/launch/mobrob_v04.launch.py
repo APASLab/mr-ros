@@ -6,13 +6,12 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    pkg_mobrob_3d_perception = get_package_share_directory("mobrob_v04")
+    pkg_mobrob_v04 = get_package_share_directory("mobrob_v04")
 
-    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
+    pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
     pkg_turtlebot3_gazebo = get_package_share_directory("turtlebot3_gazebo")
     pkg_turtlebot3_description = get_package_share_directory("turtlebot3_description")
 
@@ -21,22 +20,35 @@ def generate_launch_description():
 
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, "launch", "gzserver.launch.py")
+            os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")
         ),
         launch_arguments={
-            "world": os.path.join(pkg_mobrob_3d_perception, "models", "empty_world.world"),
+            "gz_args": [
+                "-r -s -v2 ",
+                os.path.join(pkg_mobrob_v04, "models", "empty_world.world"),
+            ],
+            "on_exit_shutdown": "true",
         }.items(),
     )
 
-    spawn_turtlebot_cmd = Node(
-        package="gazebo_ros",
-        executable="spawn_entity.py",
+    spawn_turtlebot_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_turtlebot3_gazebo, "launch", "spawn_turtlebot3.launch.py")
+        ),
+        launch_arguments={
+            "x_pose": x_pose,
+            "y_pose": y_pose,
+        }.items(),
+    )
+
+    service_bridge_cmd = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="service_bridge",
         arguments=[
-            "-entity", "burger",
-            "-file", os.path.join(pkg_turtlebot3_gazebo, "models", "turtlebot3_burger", "model.sdf"),
-            "-x", x_pose,
-            "-y", y_pose,
-            "-z", "0.01",
+            "/world/default/create@ros_gz_interfaces/srv/SpawnEntity",
+            "/world/default/remove@ros_gz_interfaces/srv/DeleteEntity",
+            "/world/default/set_pose@ros_gz_interfaces/srv/SetEntityPose",
         ],
         output="screen",
     )
@@ -61,7 +73,7 @@ def generate_launch_description():
         name="rviz2",
         package="rviz2",
         executable="rviz2",
-        arguments=["-d", os.path.join(pkg_mobrob_3d_perception, "rviz", "mobrob_v04.rviz")],
+        arguments=["-d", os.path.join(pkg_mobrob_v04, "rviz", "mobrob_v04.rviz")],
     )
 
     mobrob_v04 = Node(
@@ -77,6 +89,7 @@ def generate_launch_description():
     return LaunchDescription([
         gzserver_cmd,
         spawn_turtlebot_cmd,
+        service_bridge_cmd,
         robot_state_publisher_cmd,
         rviz_cmd,
         mobrob_v04,

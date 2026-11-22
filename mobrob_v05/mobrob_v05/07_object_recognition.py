@@ -33,13 +33,13 @@ class ObjectRecognition(Node):
         # Outputting ONNX file path
         self.get_logger().info(f'ONNX file: {os.path.expanduser(self.get_parameter("onnx_file").value)}')
         if not os.path.isfile(os.path.expanduser(self.get_parameter("onnx_file").value)):
-            self.get_logger().error(f"ONNX file path is not correct")
+            self.get_logger().error("ONNX file path is not correct")
             exit()
 
         # Outputting classes file path
         self.get_logger().info(f'Classes file: {os.path.expanduser(self.get_parameter("classes_file").value)}')
         if not os.path.isfile(os.path.expanduser(self.get_parameter("classes_file").value)):
-            self.get_logger().error(f"Classes file path is not correct")
+            self.get_logger().error("Classes file path is not correct")
             exit()
 
         # Initializing the subscriber for input raw image
@@ -63,7 +63,7 @@ class ObjectRecognition(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
         (h, w)= frame.shape[:2]
 
         # Prepare a square image for inference
@@ -106,7 +106,7 @@ class ObjectRecognition(Node):
 
                 # Update list of bounding box coordinates, confidences, and class IDs
                 boxes.append([int(v * scale) for v in (x, y, w, h)])
-                confidences.append(confidence)
+                confidences.append(float(confidence))
                 classIDs.append(classID)
 
         # Removing some boxes using non-maximum suppression
@@ -145,10 +145,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        object_recognition.get_logger().error(e)
+        object_recognition.get_logger().error(str(e))
     finally:
         object_recognition.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

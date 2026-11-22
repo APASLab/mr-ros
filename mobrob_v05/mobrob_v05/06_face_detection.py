@@ -31,7 +31,7 @@ class FaceDetection(Node):
         self.get_logger().info(f'Cascade file: {os.path.expanduser(self.get_parameter("cascade_file").value)}')
 
         if not os.path.isfile(os.path.expanduser(self.get_parameter("cascade_file").value)):
-            self.get_logger().error(f"Cascade file path is not correct")
+            self.get_logger().error("Cascade file path is not correct")
             exit()
 
         # Initializing the subscriber for input raw image
@@ -51,7 +51,7 @@ class FaceDetection(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         # Convert to grayscale for faster detection
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -84,10 +84,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        face_detection.get_logger().error(e)
+        face_detection.get_logger().error(str(e))
     finally:
         face_detection.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

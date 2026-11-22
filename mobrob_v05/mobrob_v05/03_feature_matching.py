@@ -54,7 +54,7 @@ class FeatureMatching(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         keypoints = self.orb.detect(frame)
@@ -96,7 +96,7 @@ class FeatureMatching(Node):
                 # Publish the image
                 self.matched_publisher.publish(image_msg)
             else:
-                self.get_logger().error(f"No previous image saved")
+                self.get_logger().error("No previous image saved")
 
 
         frame = cv2.drawKeypoints(frame, keypoints, None, color=(0, 255, 0))
@@ -111,12 +111,12 @@ class FeatureMatching(Node):
         self.image_publisher.publish(image_msg)
 
     def save_image_callback(self, request, response):
-        self.get_logger().info(f"Service /save_image called")
+        self.get_logger().info("Service /save_image called")
         self.flag_save_image = True
         return response
 
     def match_image_callback(self, request, response):
-        self.get_logger().info(f"Service /match_image called")
+        self.get_logger().info("Service /match_image called")
         self.flag_match_image = True
         return response
 
@@ -130,10 +130,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        feature_matching.get_logger().error(e)
+        feature_matching.get_logger().error(str(e))
     finally:
         feature_matching.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

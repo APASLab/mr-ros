@@ -10,7 +10,7 @@ from launch_ros.actions import Node
 
 
 def validate_and_use_mode(context, *args, **kwargs):
-    pkg_mobrob_localization = get_package_share_directory("mobrob_v07")
+    pkg_mobrob_v07 = get_package_share_directory("mobrob_v07")
     mode_value = LaunchConfiguration("mode").perform(context)
     valid_values = ["localization", "mapping", "navigation"]
 
@@ -22,13 +22,13 @@ def validate_and_use_mode(context, *args, **kwargs):
         package="rviz2",
         executable="rviz2",
         name="rviz2",
-        arguments=["-d", os.path.join(pkg_mobrob_localization, "rviz", f"{mode_value}.rviz")],
+        arguments=["-d", os.path.join(pkg_mobrob_v07, "rviz", f"{mode_value}.rviz")],
         output="screen",
     )]
 
 
 def generate_launch_description():
-    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
+    pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
     pkg_turtlebot3_gazebo = get_package_share_directory("turtlebot3_gazebo")
 
     use_sim_time = LaunchConfiguration("use_sim_time", default="true")
@@ -42,10 +42,14 @@ def generate_launch_description():
 
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, "launch", "gzserver.launch.py")
+            os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")
         ),
         launch_arguments={
-            "world": os.path.join(pkg_turtlebot3_gazebo, "worlds", "turtlebot3_dqn_stage4.world"),
+            "gz_args": [
+                "-r -s -v2 ",
+                os.path.join(pkg_turtlebot3_gazebo, "worlds", "turtlebot3_dqn_stage4.world"),
+            ],
+            "on_exit_shutdown": "true",
         }.items()
     )
 

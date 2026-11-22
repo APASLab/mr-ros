@@ -1,12 +1,18 @@
 import os
+import time
 
 import rclpy
 from rclpy.node import Node
 
-from gazebo_msgs.srv import SpawnEntity, GetModelList, SetEntityState
+from ros_gz_interfaces.msg import Entity
+from ros_gz_interfaces.srv import DeleteEntity, SetEntityPose, SpawnEntity
 from geometry_msgs.msg import PoseStamped
 
 from ament_index_python.packages import get_package_share_directory
+
+
+WORLD_NAME = "default"
+PILLAR_POSITION = (2.0, 0.0, 1.0)
 
 
 class MobRob3dPerception(Node):
@@ -22,59 +28,77 @@ class MobRob3dPerception(Node):
 
     def spawn_model(self, model_name, model_filename):
         self.get_logger().warning(f"Trying to spawn model: {model_name}")
-        # Check if model already exists
-        if not self.check_model_exists(model_name):
-            # Loading pillar model
-            model = SpawnEntity.Request()
-            model.name = model_name
-            urdf_path = os.path.join(self.pkg_share_dir, "models", model_filename)
-            model.xml = open(urdf_path, "r").read()
 
-            # Creating a service client
-            spawn_model_client = self.create_client(SpawnEntity, "/spawn_entity")
+        # Removing a leftover model
+        try:
+            self.delete_model(model_name)
+        except Exception as _:
+            # Failure just means there was nothing there
+            pass
 
-            while not spawn_model_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().warning("Service /spawn_entity not available, waiting again...")
+        # Loading pillar model
+        model = SpawnEntity.Request()
+        model.entity_factory.name = model_name
+        sdf_path = os.path.join(self.pkg_share_dir, "models", model_filename)
+        model.entity_factory.sdf = open(sdf_path, "r").read()
+        model.entity_factory.pose.position.x = PILLAR_POSITION[0]
+        model.entity_factory.pose.position.y = PILLAR_POSITION[1]
+        model.entity_factory.pose.position.z = PILLAR_POSITION[2]
+        model.entity_factory.pose.orientation.w = 1.0
 
+        # Creating a service client
+        spawn_model_client = self.create_client(SpawnEntity, f"/world/{WORLD_NAME}/create")
+
+        while not spawn_model_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warning(f"Service /world/{WORLD_NAME}/create not available, waiting again...")
+
+        for _ in range(30):
             future = spawn_model_client.call_async(model)
             while not future.done():
                 rclpy.spin_once(self)
 
             if future.result().success:
                 self.get_logger().info("Model spawned")
-            else:
-                self.get_logger().warning(f"{future.result().status_message}")
-        else:
-            self.get_logger().warning("Model already existing")
+                return
 
-    def check_model_exists(self, model_name):
-        properties = GetModelList.Request()
+            self.get_logger().warning("Spawn refused, Gazebo is probably still loading the world...")
+            time.sleep(1.0)
 
-        model_list = self.create_client(GetModelList, "/get_model_list")
-        while not model_list.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warning("Service /get_model_list not available, waiting again...")
+        self.get_logger().error(f"Could not spawn model: {model_name}")
 
-        future = model_list.call_async(properties)
+    def delete_model(self, model_name):
+        entity = DeleteEntity.Request()
+        entity.entity.name = model_name
+        entity.entity.type = Entity.MODEL
+
+        delete_model_client = self.create_client(DeleteEntity, f"/world/{WORLD_NAME}/remove")
+        while not delete_model_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warning(f"Service /world/{WORLD_NAME}/remove not available, waiting again...")
+
+        future = delete_model_client.call_async(entity)
         while not future.done():
             rclpy.spin_once(self)
 
-        return model_name in future.result().model_names
+        return future.result().success
 
     def move_pillar_callback(self, msg):
         if msg.pose.position is None:
             return
 
-        new_pillar_position = SetEntityState.Request()
-        new_pillar_position.state.name = "unit_cylinder"
-        new_pillar_position.state.pose.position.x = msg.pose.position.x
-        new_pillar_position.state.pose.position.y = msg.pose.position.y
-        new_pillar_position.state.pose.position.z = 1.0
+        new_pillar_position = SetEntityPose.Request()
+        new_pillar_position.entity.name = "unit_cylinder"
+        new_pillar_position.entity.type = Entity.MODEL
+        new_pillar_position.pose.position.x = msg.pose.position.x
+        new_pillar_position.pose.position.y = msg.pose.position.y
+        new_pillar_position.pose.position.z = PILLAR_POSITION[2]
+        new_pillar_position.pose.orientation.w = 1.0
 
-        entity_state = self.create_client(SetEntityState, "/set_entity_state")
-        while not entity_state.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warning("Service /set_entity_state not available, waiting again...")
+        entity_pose = self.create_client(SetEntityPose, f"/world/{WORLD_NAME}/set_pose")
+        while not entity_pose.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warning(f"Service /world/{WORLD_NAME}/set_pose not available, waiting again...")
 
-        future = entity_state.call_async(new_pillar_position)
+        entity_pose.call_async(new_pillar_position)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -85,10 +109,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        mobrob_3d_perception.get_logger().error(e)
+        mobrob_3d_perception.get_logger().error(str(e))
     finally:
         mobrob_3d_perception.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

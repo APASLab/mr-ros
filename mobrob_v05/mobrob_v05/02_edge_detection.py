@@ -39,7 +39,7 @@ class EdgeDetection(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         # Get Canny edge detector threshold values from parameters
         thr1 = int(self.get_parameter("thr1").value)
@@ -67,10 +67,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        edge_detection.get_logger().error(e)
+        edge_detection.get_logger().error(str(e))
     finally:
         edge_detection.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

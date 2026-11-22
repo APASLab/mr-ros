@@ -44,7 +44,7 @@ class ColorThresholding(Node):
 
     def image_callback(self, msg):
         # Convert the Image message to the OpenCV image frame
-        frame = CvBridge().imgmsg_to_cv2(msg)
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         # Get color threshold values from parameters
         r_min = int(self.get_parameter("r_min").value)
@@ -54,8 +54,8 @@ class ColorThresholding(Node):
         g_max = int(self.get_parameter("g_max").value)
         b_max = int(self.get_parameter("b_max").value)
 
-        # Threshold the image - image is written in RGB format
-        frame_threshold = cv2.inRange(frame, (r_min, g_min, b_min), (r_max, g_max, b_max))
+        # Threshold the image - OpenCV stores the channels in BGR order
+        frame_threshold = cv2.inRange(frame, (b_min, g_min, r_min), (b_max, g_max, r_max))
 
         # Convert the thresholded OpenCV image frame to Image message
         image_msg = CvBridge().cv2_to_imgmsg(frame_threshold, encoding="mono8")
@@ -76,10 +76,10 @@ def main(args=None):
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     except Exception as e:
-        color_thresholding.get_logger().error(e)
+        color_thresholding.get_logger().error(str(e))
     finally:
         color_thresholding.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
